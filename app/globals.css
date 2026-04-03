@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  overscroll-behavior: none;
+}
+
+/* Ensure scanner takes full screen */
+#scanner-container video {
+  object-fit: cover !important;
+}
+
+/* Disable pull-to-refresh on mobile */
+body {
+  touch-action: manipulation;
+}
