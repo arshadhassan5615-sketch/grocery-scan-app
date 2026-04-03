@@ -1,17 +1,42 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useRouter } from 'next/navigation';
+
+const SUPPORTED_FORMATS = [
+  Html5QrcodeSupportedFormats.EAN_13,
+  Html5QrcodeSupportedFormats.EAN_8,
+  Html5QrcodeSupportedFormats.UPC_A,
+  Html5QrcodeSupportedFormats.CODE_128,
+];
 
 export default function BarcodeScanner() {
   const router = useRouter();
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasScanned, setHasScanned] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState('');
+
+  const handleManualSubmit = () => {
+    const barcode = manualBarcode.trim();
+    if (barcode) {
+      router.push(`/item/${encodeURIComponent(barcode)}`);
+    }
+  };
+
+  const handleManualKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleManualSubmit();
+    }
+  };
 
   useEffect(() => {
-    const scanner = new Html5Qrcode('scanner-container');
+    const scanner = new Html5Qrcode('scanner-container', {
+      formatsToSupport: SUPPORTED_FORMATS,
+      verbose: false,
+    });
     scannerRef.current = scanner;
 
     const start = async () => {
@@ -31,8 +56,7 @@ export default function BarcodeScanner() {
           cameraId,
           {
             fps: 10,
-            qrbox: { width: 250, height: 150 },
-            aspectRatio: 1.0,
+            qrbox: { width: 280, height: 120 },
           },
           (decodedText) => {
             if (hasScanned) return;
@@ -74,6 +98,24 @@ export default function BarcodeScanner() {
       ) : (
         <div id="scanner-container" className="flex-1" />
       )}
+      <div className="p-4 bg-black flex items-center gap-2">
+        <input
+          type="text"
+          value={manualBarcode}
+          onChange={(e) => setManualBarcode(e.target.value)}
+          onKeyDown={handleManualKeyDown}
+          placeholder="Enter barcode manually & press Enter..."
+          className="flex-1 border-2 rounded-xl px-4 py-3 text-lg bg-gray-900 text-white border-gray-600 focus:outline-none focus:border-gray-400 min-h-[56px] touch-manipulation"
+          autoComplete="off"
+        />
+        <button
+          onClick={handleManualSubmit}
+          disabled={!manualBarcode.trim()}
+          className="bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl min-h-[56px] active:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation"
+        >
+          Go
+        </button>
+      </div>
     </div>
   );
 }
