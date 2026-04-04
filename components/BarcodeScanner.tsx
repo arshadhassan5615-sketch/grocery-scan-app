@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 const SUPPORTED_FORMATS = [
   Html5QrcodeSupportedFormats.EAN_13,
@@ -15,7 +16,7 @@ export default function BarcodeScanner() {
   const router = useRouter();
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hasScanned, setHasScanned] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
 
   const handleManualSubmit = () => {
@@ -33,13 +34,13 @@ export default function BarcodeScanner() {
   };
 
   useEffect(() => {
-    const scanner = new Html5Qrcode('scanner-container', {
-      formatsToSupport: SUPPORTED_FORMATS,
-      verbose: false,
-    });
-    scannerRef.current = scanner;
-
     const start = async () => {
+      const scanner = new Html5Qrcode('scanner-container', {
+        formatsToSupport: SUPPORTED_FORMATS,
+        verbose: false,
+      });
+      scannerRef.current = scanner;
+
       try {
         const devices = await Html5Qrcode.getCameras();
         if (!devices || devices.length === 0) {
@@ -47,7 +48,6 @@ export default function BarcodeScanner() {
           return;
         }
 
-        // Prefer back camera
         const cameraId = devices.find((d) =>
           d.label.toLowerCase().includes('back')
         )?.id || devices[0].id;
@@ -58,14 +58,37 @@ export default function BarcodeScanner() {
             fps: 10,
             qrbox: { width: 280, height: 120 },
           },
-          (decodedText) => {
-            if (hasScanned) return;
-            setHasScanned(true);
-            // Navigate immediately and stop scanner
+          async (decodedText) => {
+            if (scannerRef.current !== scanner) return;
+            scannerRef.current = null;
+
+            // Stop & clear camera in background (not awaited)
+            scanner.stop().then(() => scanner.clear()).catch(() => {});
+
+            // Show spinner while we look up the item
+            setLoading(true);
+
             try {
-              scanner.clear();
-            } catch {}
-            router.push(`/item/${encodeURIComponent(decodedText)}`);
+              const { data: item } = await supabase
+                .from('items')
+                .select('*')
+                .eq('barcode', decodedText)
+                .single();
+
+              if (item) {
+                router.push(`/item/${encodeURIComponent(decodedText)}`);
+              } else {
+                router.push(
+                  `/add?barcode=${encodeURIComponent(decodedText)}&mode=scan`
+                );
+              }
+            } catch {
+              router.push(
+                `/add?barcode=${encodeURIComponent(decodedText)}&mode=scan`
+              );
+            } finally {
+              setLoading(false);
+            }
           },
           () => {} // Ignore scan errors (normal when scanning)
         );
@@ -78,10 +101,10 @@ export default function BarcodeScanner() {
 
     return () => {
       try {
-        scanner.clear();
+        scannerRef.current?.clear();
       } catch {}
     };
-  }, [router, hasScanned]);
+  }, [router]);
 
   return (
     <div className="flex-1 bg-black flex flex-col">
@@ -94,6 +117,10 @@ export default function BarcodeScanner() {
           >
             Go Back Home
           </button>
+        </div>
+      ) : loading ? (
+        <div className="flex-1 flex items-center justify-center bg-black/80 z-50">
+          <div className="h-10 w-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div id="scanner-container" className="flex-1" />
