@@ -1,22 +1,56 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { BrowserMultiFormatReader } from '@zxing/browser';
-import { NotFoundException } from '@zxing/library';
+import { DecodeHintType, BarcodeFormat, NotFoundException } from '@zxing/library';
+import type { Result } from '@zxing/library';
 import { supabase } from '@/lib/supabase';
+
+const hints = new Map<DecodeHintType | number, unknown>();
+hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+  BarcodeFormat.EAN_13,
+  BarcodeFormat.EAN_8,
+  BarcodeFormat.CODE_128,
+  BarcodeFormat.CODE_39,
+  BarcodeFormat.QR_CODE,
+  BarcodeFormat.UPC_A,
+  BarcodeFormat.UPC_E,
+]);
+hints.set(DecodeHintType.TRY_HARDER, true);
 
 export default function BarcodeScanner() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const scannedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [scanned, setScanned] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
 
+  const handleBarcode = useCallback(async (result: Result) => {
+    const text = result.getText();
+    if (!text) return;
+    scannedRef.current = true;
+    setLoading(true);
+    try {
+      const { data: item } = await supabase
+        .from('products')
+        .select('*')
+        .eq('barcode', text)
+        .single();
+      if (item) {
+        router.push('/item/' + item.id);
+      } else {
+        router.push('/add?barcode=' + encodeURIComponent(text) + '&mode=scan');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
   useEffect(() => {
-    const codeReader = new BrowserMultiFormatReader();
+    const codeReader = new BrowserMultiFormatReader(hints);
     readerRef.current = codeReader;
 
     const start = async () => {
@@ -24,25 +58,11 @@ export default function BarcodeScanner() {
         await codeReader.decodeFromVideoDevice(
           undefined,
           videoRef.current!,
-          async (result, err) => {
-            if (result && !scanned) {
-              setScanned(true);
-              const text = result.getText();
-              setLoading(true);
-              try {
-                const { data: item } = await supabase
-                  .from('products')
-                  .select('*')
-                  .eq('barcode', text)
-                  .single();
-                if (item) {
-                  router.push('/item/' + item.id);
-                } else {
-                  router.push('/add?barcode=' + encodeURIComponent(text) + '&mode=scan');
-                }
-              } finally {
-                setLoading(false);
-              }
+          async (result, err, controls) => {
+            if (result) {
+              controls.stop();
+              await handleBarcode(result);
+              return;
             }
             if (err && !(err instanceof NotFoundException)) {
               // ignore normal not-found errors during scanning
@@ -57,9 +77,10 @@ export default function BarcodeScanner() {
     start();
 
     return () => {
+      scannedRef.current = true;
       BrowserMultiFormatReader.releaseAllStreams();
     };
-  }, []);
+  }, [handleBarcode]);
 
   const handleManualSubmit = async () => {
     const barcode = manualBarcode.trim();
@@ -105,7 +126,29 @@ export default function BarcodeScanner() {
 
   return (
     <div className="flex-1 bg-black flex flex-col">
-      <video ref={videoRef} className="flex-1 w-full object-cover" />
+      <div className="flex-1 relative bg-black">
+        <video
+          ref={videoRef}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        {/* Viewfinder overlay */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="relative w-64 h-64">
+            {/* Viewfinder border */}
+            <div className="absolute inset-0 border-[2px] border-white/60 rounded-lg" />
+            {/* Corner brackets */}
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-green-400 rounded-tl-lg" />
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-green-400 rounded-tr-lg" />
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-green-400 rounded-bl-lg" />
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-green-400 rounded-br-lg" />
+            {/* Scanning line animation */}
+            <div className="absolute left-2 right-2 h-0.5 bg-green-400 animate-bounce top-1/2" />
+          </div>
+          <p className="absolute bottom-32 text-white text-sm bg-black/50 px-4 py-2 rounded-full">
+            Point at barcode to scan
+          </p>
+        </div>
+      </div>
       <div className="p-4 bg-black flex items-center gap-2">
         <input
           type="text"
