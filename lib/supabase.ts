@@ -56,6 +56,7 @@ export type Item = {
   stock_quantity: number;
   low_stock_threshold: number;
   expiry_date?: string | null;
+  supplier_id?: string | null;
 };
 
 export type Transaction = {
@@ -88,4 +89,14 @@ export type ItemUpdate = {
   name?: string;
   buy_price?: string | number;
   sell_price?: string | number;
+};
+
+export type Supplier = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  whatsapp?: string | null;
+  category?: string | null;
+  notes?: string | null;
+  created_at: string;
 };

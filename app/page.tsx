@@ -151,24 +151,30 @@ export default function HomePage() {
       </Link>
 
       {role === 'owner' && (
-        <div className="flex gap-3 w-full max-w-sm">
+        <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
           <Link
             href="/history"
-            className="flex-1 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
+            className="border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
           >
             Sales History
           </Link>
           <Link
             href="/stock"
-            className="flex-1 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
+            className="border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
           >
             Stock
           </Link>
           <Link
             href="/expiry"
-            className="flex-1 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
+            className="border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
           >
             Expiry
+          </Link>
+          <Link
+            href="/suppliers"
+            className="border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
+          >
+            Suppliers
           </Link>
         </div>
       )}

@@ -13,6 +13,7 @@ export default function StockPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState('');
   const [saving, setSaving] = useState(false);
+  const [suppliers, setSuppliers] = useState<Map<string, { whatsapp?: string | null }>>(new Map());
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -28,6 +29,18 @@ export default function StockPage() {
       setItems(lowStock);
     }
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const loadSuppliers = async () => {
+      const { data } = await supabase.from('suppliers').select('id, whatsapp');
+      if (data) {
+        const map = new Map<string, { whatsapp?: string | null }>();
+        data.forEach((s) => map.set(s.id, { whatsapp: s.whatsapp }));
+        setSuppliers(map);
+      }
+    };
+    loadSuppliers();
   }, []);
 
   useEffect(() => {
@@ -116,12 +129,24 @@ export default function StockPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => { setEditingId(item.id); setEditQty(String(item.stock_quantity ?? 0)); }}
-                    className="bg-blue-600 text-white text-sm font-semibold rounded-lg px-4 py-2 min-h-[48px] active:bg-blue-700 touch-manipulation"
-                  >
-                    Update
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {item.supplier_id && suppliers.has(item.supplier_id) && suppliers.get(item.supplier_id)?.whatsapp && (
+                      <a
+                        href={`https://wa.me/${suppliers.get(item.supplier_id)!.whatsapp!.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi, we need to restock ${item.name}. Current stock: ${item.stock_quantity ?? 0} units.`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-green-500 text-white text-sm font-semibold rounded-lg px-3 py-2 min-h-[48px] active:bg-green-600 touch-manipulation"
+                      >
+                        WhatsApp
+                      </a>
+                    )}
+                    <button
+                      onClick={() => { setEditingId(item.id); setEditQty(String(item.stock_quantity ?? 0)); }}
+                      className="bg-blue-600 text-white text-sm font-semibold rounded-lg px-4 py-2 min-h-[48px] active:bg-blue-700 touch-manipulation"
+                    >
+                      Update
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

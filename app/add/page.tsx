@@ -15,6 +15,8 @@ export default function AddItemPage() {
   const [stockQty, setStockQty] = useState('');
   const [threshold, setThreshold] = useState('5');
   const [expiryDate, setExpiryDate] = useState('');
+  const [suppliers, setSuppliers] = useState<Array<{ id: string; name: string }>>([]);
+  const [supplierId, setSupplierId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +29,13 @@ export default function AddItemPage() {
     const n = sp.get('name');
     if (n) setName(n);
     setIsOwner(sessionStorage.getItem('grocery-role') === 'owner');
+
+    // Fetch suppliers for dropdown
+    const fetchSuppliers = async () => {
+      const { data } = await supabase.from('suppliers').select('id, name').order('name', { ascending: true });
+      if (data) setSuppliers(data);
+    };
+    fetchSuppliers();
   }, []);
 
   const handleSave = async () => {
@@ -46,6 +55,7 @@ export default function AddItemPage() {
       stock_quantity: parseInt(stockQty) || 0,
       low_stock_threshold: parseInt(threshold) || 5,
       expiry_date: expiryDate || null,
+      supplier_id: supplierId || null,
     };
 
     const { data, error: err } = await supabase
@@ -179,6 +189,24 @@ export default function AddItemPage() {
               onChange={(e) => setExpiryDate(e.target.value)}
               className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
             />
+          </div>
+        )}
+
+        {isOwner && (
+          <div>
+            <label className="block text-sm font-semibold mb-2">
+              Supplier {'(optional)'}
+            </label>
+            <select
+              value={supplierId}
+              onChange={(e) => setSupplierId(e.target.value)}
+              className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
+            >
+              <option value="">None</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
           </div>
         )}
       </div>
