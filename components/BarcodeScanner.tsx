@@ -15,9 +15,19 @@ const SUPPORTED_FORMATS = [
 export default function BarcodeScanner() {
   const router = useRouter();
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const mountedRef = useRef(false);
+  const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
+
+  useEffect(() => {
+    mountedRef.current = true;
+    setMounted(true);
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const handleManualSubmit = () => {
     const barcode = manualBarcode.trim();
@@ -34,6 +44,14 @@ export default function BarcodeScanner() {
   };
 
   useEffect(() => {
+    // Only start after component is mounted on the client
+    if (!mountedRef.current) return;
+
+    const container = document.getElementById('scanner-container');
+    if (!container) return;
+
+    let cancelled = false;
+
     const start = async () => {
       const scanner = new Html5Qrcode('scanner-container', {
         formatsToSupport: SUPPORTED_FORMATS,
@@ -44,7 +62,7 @@ export default function BarcodeScanner() {
       try {
         const devices = await Html5Qrcode.getCameras();
         if (!devices || devices.length === 0) {
-          setError('No cameras found');
+          if (!cancelled) setError('No cameras found');
           return;
         }
 
@@ -62,11 +80,10 @@ export default function BarcodeScanner() {
             if (scannerRef.current !== scanner) return;
             scannerRef.current = null;
 
-            // Stop & clear camera in background (not awaited)
+            // Stop & clear camera in background
             scanner.stop().then(() => scanner.clear()).catch(() => {});
 
-            // Show spinner while we look up the item
-            setLoading(true);
+            if (!cancelled) setLoading(true);
 
             try {
               const { data: item } = await supabase
@@ -87,28 +104,36 @@ export default function BarcodeScanner() {
                 `/add?barcode=${encodeURIComponent(decodedText)}&mode=scan`
               );
             } finally {
-              setLoading(false);
+              if (!cancelled) setLoading(false);
             }
           },
-          () => {} // Ignore scan errors (normal when scanning)
+          () => {} // Ignore decode errors (normal when no barcode in view)
         );
       } catch (err: any) {
-        setError(err?.message || 'Failed to start camera');
+        if (!cancelled) setError(err?.message || 'Failed to start camera');
       }
     };
 
     start();
 
     return () => {
-      try {
-        scannerRef.current?.clear();
-      } catch {}
+      cancelled = true;
+      const s = scannerRef.current;
+      scannerRef.current = null;
+      if (s) {
+        s.stop().then(() => s.clear()).catch(() => {});
+      }
     };
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex-1 bg-black flex flex-col">
-      {error ? (
+      {!mounted || loading ? (
+        <div className="flex-1 flex items-center justify-center bg-black/80 z-50">
+          <div className="h-10 w-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : error ? (
         <div className="flex-1 flex flex-col items-center justify-center text-white p-6 text-center">
           <p className="text-lg mb-4">{error}</p>
           <button
@@ -117,10 +142,6 @@ export default function BarcodeScanner() {
           >
             Go Back Home
           </button>
-        </div>
-      ) : loading ? (
-        <div className="flex-1 flex items-center justify-center bg-black/80 z-50">
-          <div className="h-10 w-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div id="scanner-container" className="flex-1" />
