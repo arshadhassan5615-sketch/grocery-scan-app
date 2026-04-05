@@ -3,6 +3,7 @@ import './globals.css';
 import ThemeProvider from '@/components/ThemeProvider';
 import ThemeToggle from '@/components/ThemeToggle';
 import CartButton from '@/components/CartButton';
+import { Suspense } from 'react';
 
 export const metadata: Metadata = {
   title: 'Grocery Price Scanner',
@@ -38,7 +39,9 @@ export default function RootLayout({
         <ThemeProvider>
           <div className="max-w-md mx-auto min-h-screen flex flex-col relative">
             {children}
-            <CartButton />
+            <Suspense fallback={null}>
+              <CartButton />
+            </Suspense>
             <ThemeToggle />
           </div>
         </ThemeProvider>
