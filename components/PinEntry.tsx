@@ -1,19 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { OWNER_PIN, STAFF_PIN } from '@/lib/config';
 
 export default function PinEntry() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [shaking, setShaking] = useState(false);
-  const router = useRouter();
-
-  useEffect(() => {
-    const role = sessionStorage.getItem('grocery-role');
-    if (role) router.replace('/');
-  }, [router]);
 
   const handleDigit = (d: string) => {
     if (pin.length >= 4) return;
@@ -22,16 +15,15 @@ export default function PinEntry() {
     if (next.length === 4) {
       if (next === OWNER_PIN) {
         sessionStorage.setItem('grocery-role', 'owner');
-        router.replace('/');
+        window.location.href = '/';
       } else if (next === STAFF_PIN) {
         sessionStorage.setItem('grocery-role', 'staff');
-        router.replace('/');
+        window.location.href = '/';
       } else {
-        setError('Incorrect PIN');
+        setError('Wrong PIN');
         setShaking(true);
         setTimeout(() => setShaking(false), 500);
-        setTimeout(() => setPin(''), 800);
-        setTimeout(() => setError(''), 2000);
+        setTimeout(() => { setPin(''); setError(''); }, 800);
       }
     }
   };
