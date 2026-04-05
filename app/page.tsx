@@ -18,8 +18,8 @@ export default function HomePage() {
     const stored = sessionStorage.getItem('grocery-role');
     if (stored) {
       setRole(stored);
-      setChecked(true);
     }
+    setChecked(true);
   }, []);
 
   useEffect(() => {
