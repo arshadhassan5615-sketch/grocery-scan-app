@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import ThemeProvider from '@/components/ThemeProvider';
 import ThemeToggle from '@/components/ThemeToggle';
+import CartButton from '@/components/CartButton';
 
 export const metadata: Metadata = {
   title: 'Grocery Price Scanner',
@@ -37,6 +38,7 @@ export default function RootLayout({
         <ThemeProvider>
           <div className="max-w-md mx-auto min-h-screen flex flex-col relative">
             {children}
+            <CartButton />
             <ThemeToggle />
           </div>
         </ThemeProvider>

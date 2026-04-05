@@ -43,6 +43,6 @@ export const config = {
      * - static assets (favicon, manifest, etc.)
      * - _next/static, _next/image, public folder
      */
-    '/((?!login|signup|icon\\.svg|manifest\\.json|icon-192\\.png|_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)',
+    '/((?!login|signup|icon\\.svg|manifest\\.json|icon-192\\.png|_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$|api|_vercel).*)',
   ],
 };

@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase, Item } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import AddToCartButton from '@/components/AddToCartButton';
 
 export default function ItemPage() {
   const params = useParams();
   const router = useRouter();
-  const [item, setItem] = useState<Item | null>(null);
+  const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,18 +17,16 @@ export default function ItemPage() {
     const fetchItem = async () => {
       const id = params.id as string;
 
-      // First try to fetch directly by ID as UUID
       let { data, error: err } = await supabase
-        .from('items')
+        .from('products')
         .select('*')
         .eq('id', id)
         .single();
 
-      // If not found, maybe the param is a barcode
       if (err) {
         const decoded = decodeURIComponent(id);
         const result = await supabase
-          .from('items')
+          .from('products')
           .select('*')
           .eq('barcode', decoded)
           .single();
@@ -35,7 +34,6 @@ export default function ItemPage() {
         if (result.data) {
           data = result.data;
         } else {
-          // Item not found — redirect to add page
           router.replace(
             `/add?barcode=${encodeURIComponent(decoded)}&mode=scan`
           );
@@ -66,6 +64,10 @@ export default function ItemPage() {
     );
   }
 
+  const buyP = parseFloat(item.buy_price);
+  const sellP = parseFloat(item.sell_price);
+  const margin = (sellP - buyP).toFixed(2);
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 gap-8">
       <div className="text-center w-full">
@@ -85,7 +87,7 @@ export default function ItemPage() {
             Cost
           </p>
           <p className="text-4xl text-blue-600 dark:text-blue-400 font-semibold">
-            ${parseFloat(item.buy_price).toFixed(2)}
+            AED {buyP.toFixed(2)}
           </p>
         </div>
 
@@ -94,7 +96,7 @@ export default function ItemPage() {
             Price
           </p>
           <p className="text-5xl text-green-600 dark:text-green-400 font-extrabold">
-            ${parseFloat(item.sell_price).toFixed(2)}
+            AED {sellP.toFixed(2)}
           </p>
         </div>
 
@@ -102,16 +104,21 @@ export default function ItemPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Margin:{' '}
             <span className="text-gray-700 dark:text-gray-300 font-semibold">
-              $
-              {(
-                parseFloat(item.sell_price) - parseFloat(item.buy_price)
-              ).toFixed(2)}
+              AED {margin}
             </span>
           </p>
         </div>
       </div>
 
       <div className="w-full space-y-3 mt-4">
+        <AddToCartButton
+          item={{
+            id: item.id,
+            name: item.name,
+            buy_price: buyP,
+            sell_price: sellP,
+          }}
+        />
         <Link
           href={`/edit/${item.id}`}
           className="block w-full bg-black dark:bg-white dark:text-black text-white text-center text-lg font-semibold rounded-2xl py-4 min-h-[64px] active:bg-gray-800 dark:active:bg-gray-200 touch-manipulation"

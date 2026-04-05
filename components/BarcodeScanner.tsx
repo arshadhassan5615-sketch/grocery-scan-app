@@ -70,7 +70,7 @@ export default function BarcodeScanner() {
 
             try {
               const { data: item } = await supabase
-                .from('items')
+                .from('products')
                 .select('*')
                 .eq('barcode', decodedText)
                 .single();

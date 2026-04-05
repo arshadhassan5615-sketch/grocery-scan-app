@@ -53,6 +53,26 @@ export type Item = {
   buy_price: string;
   sell_price: string;
   created_at: string;
+  stock_quantity: number;
+  low_stock_threshold: number;
+};
+
+export type Transaction = {
+  id: string;
+  transaction_id: string;
+  created_at: string;
+  items: Array<{
+    id: string;
+    name: string;
+    buy_price: number;
+    sell_price: number;
+    quantity: number;
+    lineTotal: string;
+  }>;
+  subtotal: number;
+  vat_amount: number;
+  grand_total: number;
+  total_profit: number;
 };
 
 export type ItemInsert = {

@@ -19,7 +19,7 @@ export default function EditItemPage() {
   useEffect(() => {
     const fetchItem = async () => {
       const { data, error: err } = await supabase
-        .from('items')
+        .from('products')
         .select('*')
         .eq('id', params.id)
         .single();
@@ -50,7 +50,7 @@ export default function EditItemPage() {
     setError(null);
 
     const { error: err } = await supabase
-      .from('items')
+      .from('products')
       .update({
         name: name.trim(),
         barcode: barcode || null,

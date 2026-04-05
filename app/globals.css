@@ -19,3 +19,33 @@ html, body {
 body {
   touch-action: manipulation;
 }
+
+/* Print styles for thermal receipt (58mm) */
+@media print {
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
+
+  html, body {
+    width: 58mm;
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide navigation elements */
+  .fixed,
+  [class*="ThemeToggle"],
+  nav {
+    display: none !important;
+  }
+
+  /* Ensure receipt content is visible */
+  #receipt-print,
+  .print\\:block {
+    color: #000;
+    background: #fff;
+  }
+}

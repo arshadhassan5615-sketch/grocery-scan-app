@@ -20,7 +20,7 @@ export default function SearchPage() {
       }
       setLoading(true);
       const { data, error } = await supabase
-        .from('items')
+        .from('products')
         .select('*')
         .ilike('name', `%${term}%`)
         .limit(20);
@@ -105,7 +105,7 @@ export default function SearchPage() {
                 {item.name}
               </span>
               <span className="text-green-600 dark:text-green-400 font-bold text-lg whitespace-nowrap">
-                ${parseFloat(item.sell_price).toFixed(2)}
+                AED {parseFloat(item.sell_price).toFixed(2)}
               </span>
             </button>
           ))}

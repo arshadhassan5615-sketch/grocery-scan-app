@@ -20,7 +20,7 @@ export default function AllItemsPage() {
     const to = from + PAGE_SIZE - 1;
 
     const { data, error } = await supabase
-      .from('items')
+      .from('products')
       .select('*')
       .order('name', { ascending: true })
       .range(from, to);
@@ -39,7 +39,7 @@ export default function AllItemsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this item?')) return;
 
-    const { error } = await supabase.from('items').delete().eq('id', id);
+    const { error } = await supabase.from('products').delete().eq('id', id);
     if (!error) {
       setItems((prev) => prev.filter((item) => item.id !== id));
     }
@@ -91,11 +91,11 @@ export default function AllItemsPage() {
                     {item.name}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Cost: ${parseFloat(item.buy_price).toFixed(2)}
+                    Cost: AED {parseFloat(item.buy_price).toFixed(2)}
                   </p>
                 </button>
                 <span className="text-green-600 dark:text-green-400 font-bold text-lg whitespace-nowrap mr-2">
-                  ${parseFloat(item.sell_price).toFixed(2)}
+                  AED {parseFloat(item.sell_price).toFixed(2)}
                 </span>
                 <button
                   onClick={() => handleDelete(item.id)}

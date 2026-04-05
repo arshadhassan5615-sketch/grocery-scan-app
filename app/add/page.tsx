@@ -1,21 +1,32 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-function AddItemForm() {
+export default function AddItemPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [name, setName] = useState(searchParams.get('name') || '');
-  const [barcode, setBarcode] = useState(searchParams.get('barcode') || '');
+  const [isOwner, setIsOwner] = useState(false);
+  const [name, setName] = useState('');
+  const [barcode, setBarcode] = useState('');
   const [buyPrice, setBuyPrice] = useState('');
   const [sellPrice, setSellPrice] = useState('');
+  const [stockQty, setStockQty] = useState('');
+  const [threshold, setThreshold] = useState('5');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const hasBarcode = !!barcode;
+
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const b = sp.get('barcode');
+    if (b) setBarcode(b);
+    const n = sp.get('name');
+    if (n) setName(n);
+    setIsOwner(sessionStorage.getItem('grocery-role') === 'owner');
+  }, []);
 
   const handleSave = async () => {
     if (!name.trim() || !buyPrice || !sellPrice) {
@@ -26,14 +37,18 @@ function AddItemForm() {
     setSaving(true);
     setError(null);
 
+    const insertData: any = {
+      name: name.trim(),
+      barcode: barcode || null,
+      buy_price: parseFloat(buyPrice).toFixed(2),
+      sell_price: parseFloat(sellPrice).toFixed(2),
+      stock_quantity: parseInt(stockQty) || 0,
+      low_stock_threshold: parseInt(threshold) || 5,
+    };
+
     const { data, error: err } = await supabase
-      .from('items')
-      .insert({
-        name: name.trim(),
-        barcode: hasBarcode ? barcode : null,
-        buy_price: parseFloat(buyPrice).toFixed(2),
-        sell_price: parseFloat(sellPrice).toFixed(2),
-      })
+      .from('products')
+      .insert(insertData)
       .select()
       .single();
 
@@ -83,14 +98,13 @@ function AddItemForm() {
 
         <div>
           <label className="block text-sm font-semibold mb-2">
-            Barcode {hasBarcode ? '(scanned)' : ''}
+            Barcode {'(scanned)'}
           </label>
           <input
             type="text"
             value={barcode}
             onChange={(e) => setBarcode(e.target.value)}
             placeholder="1234567890"
-            disabled={hasBarcode}
             className="w-full border-2 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500 disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
@@ -122,6 +136,35 @@ function AddItemForm() {
             className="w-full border-2 border-black dark:border-gray-400 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
           />
         </div>
+
+        {isOwner && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold mb-2">
+                Stock Quantity
+              </label>
+              <input
+                type="number"
+                value={stockQty}
+                onChange={(e) => setStockQty(e.target.value)}
+                placeholder="0"
+                className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-2">
+                Low Stock Threshold
+              </label>
+              <input
+                type="number"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                placeholder="5"
+                className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <button
@@ -132,13 +175,5 @@ function AddItemForm() {
         {saving ? 'Saving...' : 'Save Item'}
       </button>
     </div>
-  );
-}
-
-export default function AddItemPage() {
-  return (
-    <Suspense fallback={<div className="flex-1 flex items-center justify-center"><p>Loading...</p></div>}>
-      <AddItemForm />
-    </Suspense>
   );
 }
