@@ -2,198 +2,116 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { BrowserMultiFormatReader } from '@zxing/browser';
+import { NotFoundException } from '@zxing/library';
 import { supabase } from '@/lib/supabase';
 
 export default function BarcodeScanner() {
   const router = useRouter();
-  const scannerRef = useRef<any>(null);
-  const mountedRef = useRef(false);
-  const [mounted, setMounted] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [scanned, setScanned] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
 
   useEffect(() => {
-    mountedRef.current = true;
-    setMounted(true);
-
-    // Catch any errors that escape normal try/catch
-    const onWindowError = (msg: string | Event, _src?: string, _line?: number, _col?: number, err?: Error | null) => {
-      const text = typeof msg === 'string' ? msg : 'Window error';
-      const stack = err ? String(err.stack) : '';
-      setError(text + (stack ? ' | ' + stack : ''));
-      return true;
-    };
-    const onUnhandledRejection = (e: PromiseRejectionEvent) => {
-      setError('Unhandled: ' + String(e.reason));
-    };
-
-    window.addEventListener('error', onWindowError as any);
-    window.addEventListener('unhandledrejection', onUnhandledRejection);
-
-    return () => {
-      mountedRef.current = false;
-      window.removeEventListener('error', onWindowError as any);
-      window.removeEventListener('unhandledrejection', onUnhandledRejection);
-    };
-  }, []);
-
-  const handleManualSubmit = () => {
-    try {
-      const barcode = manualBarcode.trim();
-      if (barcode) {
-        router.push(`/item/${encodeURIComponent(barcode)}`);
-      }
-    } catch (err: any) {
-      setError('Manual submit error: ' + String(err?.message || err));
-    }
-  };
-
-  const handleManualKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleManualSubmit();
-    }
-  };
-
-  useEffect(() => {
-    if (!mountedRef.current) return;
-
-    const container = document.getElementById('scanner-container');
-    if (!container) return;
-
-    let cancelled = false;
-
-    // Dynamic require—never evaluated on the server
-    const { Html5Qrcode, Html5QrcodeSupportedFormats } = require('html5-qrcode');
-
-    const SUPPORTED_FORMATS = [
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A,
-      Html5QrcodeSupportedFormats.CODE_128,
-    ];
+    const codeReader = new BrowserMultiFormatReader();
+    readerRef.current = codeReader;
 
     const start = async () => {
       try {
-        console.error('[Scanner] start() called');
-
-        console.error('[Scanner] Creating Html5Qrcode instance');
-        const scanner = new Html5Qrcode('scanner-container', {
-          formatsToSupport: SUPPORTED_FORMATS,
-          verbose: false,
-        });
-        scannerRef.current = scanner;
-        console.error('[Scanner] Instance created');
-
-        console.error('[Scanner] Requesting cameras...');
-        const devices = await Html5Qrcode.getCameras();
-        console.error('[Scanner] Cameras found:', devices?.length || 0);
-
-        if (!devices || devices.length === 0) {
-          if (!cancelled) setError('No cameras found');
-          return;
-        }
-
-        const cameraId = devices.find((d: any) =>
-          d.label.toLowerCase().includes('back')
-        )?.id || devices[0].id;
-        console.error('[Scanner] Selected camera ID:', cameraId);
-
-        console.error('[Scanner] Starting scanner...');
-        await scanner.start(
-          cameraId,
-          {
-            fps: 10,
-            qrbox: { width: 280, height: 120 },
-          },
-          async (decodedText: string) => {
-            try {
-              console.error('[Scanner] Decoded:', decodedText);
-              if (scannerRef.current !== scanner) return;
-              scannerRef.current = null;
-
-              scanner.stop().then(() => scanner.clear()).catch(() => {});
-
-              if (!cancelled) setLoading(true);
-
+        await codeReader.decodeFromVideoDevice(
+          undefined,
+          videoRef.current!,
+          async (result, err) => {
+            if (result && !scanned) {
+              setScanned(true);
+              const text = result.getText();
+              setLoading(true);
               try {
                 const { data: item } = await supabase
                   .from('products')
                   .select('*')
-                  .eq('barcode', decodedText)
+                  .eq('barcode', text)
                   .single();
-
                 if (item) {
-                  router.push(`/item/${encodeURIComponent(decodedText)}`);
+                  router.push('/item/' + item.id);
                 } else {
-                  router.push(
-                    `/add?barcode=${encodeURIComponent(decodedText)}&mode=scan`
-                  );
+                  router.push('/add?barcode=' + encodeURIComponent(text) + '&mode=scan');
                 }
-              } catch {
-                router.push(
-                  `/add?barcode=${encodeURIComponent(decodedText)}&mode=scan`
-                );
               } finally {
-                if (!cancelled) setLoading(false);
+                setLoading(false);
               }
-            } catch (err: any) {
-              console.error('[Scanner] Decode callback error:', err);
-              if (!cancelled) setError('Decode error: ' + String(err?.message || err));
             }
-          },
-          () => {} // Ignore scan errors (normal when no barcode in view)
+            if (err && !(err instanceof NotFoundException)) {
+              // ignore normal not-found errors during scanning
+            }
+          }
         );
-        console.error('[Scanner] Scanner started successfully');
-      } catch (err: any) {
-        console.error('[Scanner] start() caught error:', err);
-        if (!cancelled) setError('Start error: ' + String(err?.message || err));
+      } catch (e: any) {
+        setError(e?.message || 'Camera failed to start');
       }
     };
 
     start();
 
     return () => {
-      console.error('[Scanner] Cleanup called');
-      cancelled = true;
-      const s = scannerRef.current;
-      scannerRef.current = null;
-      if (s) {
-        s.stop().then(() => s.clear()).catch((e: any) => {
-          console.error('[Scanner] Cleanup stop error:', e);
-        });
-      }
+      BrowserMultiFormatReader.releaseAllStreams();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleManualSubmit = async () => {
+    const barcode = manualBarcode.trim();
+    if (!barcode) return;
+    setLoading(true);
+    try {
+      const { data: item } = await supabase
+        .from('products')
+        .select('*')
+        .eq('barcode', barcode)
+        .single();
+      if (item) {
+        router.push('/item/' + item.id);
+      } else {
+        router.push('/add?barcode=' + encodeURIComponent(barcode) + '&mode=scan');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center
+        text-white bg-black p-6 text-center">
+        <p className="text-lg mb-4">{error}</p>
+        <button onClick={() => router.push('/')}
+          className="bg-white text-black px-6 py-3 rounded-xl">
+          Go Back Home
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-black">
+        <div className="h-10 w-10 border-4 border-white
+          border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 bg-black flex flex-col">
-      {error ? (
-        <div className="flex-1 flex flex-col items-center justify-center bg-white p-6 text-center text-black">
-          <p className="text-lg font-bold mb-2 text-red-600">Scanner Error</p>
-          <p className="text-sm text-gray-800 mb-4 break-all whitespace-pre-wrap">{error}</p>
-          <button
-            onClick={() => router.push('/')}
-            className="bg-black text-white px-6 py-3 rounded-xl font-semibold min-h-[56px]"
-          >
-            Go Back Home
-          </button>
-        </div>
-      ) : !mounted || loading ? (
-        <div className="flex-1 flex items-center justify-center bg-black/80 z-50">
-          <div className="h-10 w-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : (
-        <div id="scanner-container" className="flex-1" />
-      )}
+      <video ref={videoRef} className="flex-1 w-full object-cover" />
       <div className="p-4 bg-black flex items-center gap-2">
         <input
           type="text"
           value={manualBarcode}
           onChange={(e) => setManualBarcode(e.target.value)}
-          onKeyDown={handleManualKeyDown}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleManualSubmit(); } }}
           placeholder="Enter barcode manually & press Enter..."
           className="flex-1 border-2 rounded-xl px-4 py-3 text-lg bg-gray-900 text-white border-gray-600 focus:outline-none focus:border-gray-400 min-h-[56px] touch-manipulation"
           autoComplete="off"
