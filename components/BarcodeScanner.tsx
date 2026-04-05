@@ -1,20 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const SUPPORTED_FORMATS = [
-  Html5QrcodeSupportedFormats.EAN_13,
-  Html5QrcodeSupportedFormats.EAN_8,
-  Html5QrcodeSupportedFormats.UPC_A,
-  Html5QrcodeSupportedFormats.CODE_128,
-];
-
 export default function BarcodeScanner() {
   const router = useRouter();
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<any>(null);
   const mountedRef = useRef(false);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +64,16 @@ export default function BarcodeScanner() {
 
     let cancelled = false;
 
+    // Dynamic require—never evaluated on the server
+    const { Html5Qrcode, Html5QrcodeSupportedFormats } = require('html5-qrcode');
+
+    const SUPPORTED_FORMATS = [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.CODE_128,
+    ];
+
     const start = async () => {
       try {
         console.error('[Scanner] start() called');
@@ -93,7 +95,7 @@ export default function BarcodeScanner() {
           return;
         }
 
-        const cameraId = devices.find((d) =>
+        const cameraId = devices.find((d: any) =>
           d.label.toLowerCase().includes('back')
         )?.id || devices[0].id;
         console.error('[Scanner] Selected camera ID:', cameraId);
@@ -105,7 +107,7 @@ export default function BarcodeScanner() {
             fps: 10,
             qrbox: { width: 280, height: 120 },
           },
-          async (decodedText) => {
+          async (decodedText: string) => {
             try {
               console.error('[Scanner] Decoded:', decodedText);
               if (scannerRef.current !== scanner) return;
