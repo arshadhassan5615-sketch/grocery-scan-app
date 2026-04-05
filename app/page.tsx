@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 export default function HomePage() {
   const [role, setRole] = useState<string | null>(null);
   const [lowStockItems, setLowStockItems] = useState<Array<{ name: string; stock: number }>>([]);
+  const [expiringSoon, setExpiringSoon] = useState<number>(0);
   const [checked, setChecked] = useState(false);
 
   useInactivityTimeout();
@@ -37,6 +38,28 @@ export default function HomePage() {
       }
     };
     checkStock();
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const in7Days = new Date(today);
+    in7Days.setDate(in7Days.getDate() + 7);
+    const in7Str = in7Days.toISOString().split('T')[0];
+
+    const checkExpiry = async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('expiry_date')
+        .not('expiry_date', 'is', null)
+        .lte('expiry_date', in7Str);
+      if (data) {
+        const expiring = data.filter((d) => {
+          const expDate = new Date(d.expiry_date!);
+          return expDate >= today;
+        });
+        setExpiringSoon(expiring.length);
+      }
+    };
+    checkExpiry();
   }, [checked, role]);
 
   if (!checked) return null;
@@ -73,6 +96,18 @@ export default function HomePage() {
           {lowStockItems.length > 2 && (
             <p className="text-yellow-600 dark:text-yellow-400 text-xs">+ {lowStockItems.length - 2} more</p>
           )}
+        </Link>
+      )}
+
+      {/* Expiry warning banner */}
+      {role === 'owner' && expiringSoon > 0 && (
+        <Link
+          href="/expiry"
+          className="w-full bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 rounded-xl px-4 py-3 active:bg-orange-100 dark:active:bg-orange-900/50 touch-manipulation"
+        >
+          <p className="text-orange-700 dark:text-orange-300 text-sm font-semibold">
+            Expiring soon: {expiringSoon} item{expiringSoon > 1 ? 's' : ''} — tap to review
+          </p>
         </Link>
       )}
 
@@ -116,7 +151,7 @@ export default function HomePage() {
       </Link>
 
       {role === 'owner' && (
-        <div className="flex gap-4 w-full max-w-xs">
+        <div className="flex gap-3 w-full max-w-sm">
           <Link
             href="/history"
             className="flex-1 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
@@ -128,6 +163,12 @@ export default function HomePage() {
             className="flex-1 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
           >
             Stock
+          </Link>
+          <Link
+            href="/expiry"
+            className="flex-1 border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
+          >
+            Expiry
           </Link>
         </div>
       )}

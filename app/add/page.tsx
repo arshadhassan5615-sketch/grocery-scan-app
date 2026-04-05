@@ -14,6 +14,7 @@ export default function AddItemPage() {
   const [sellPrice, setSellPrice] = useState('');
   const [stockQty, setStockQty] = useState('');
   const [threshold, setThreshold] = useState('5');
+  const [expiryDate, setExpiryDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +45,7 @@ export default function AddItemPage() {
       sell_price: parseFloat(sellPrice).toFixed(2),
       stock_quantity: parseInt(stockQty) || 0,
       low_stock_threshold: parseInt(threshold) || 5,
+      expiry_date: expiryDate || null,
     };
 
     const { data, error: err } = await supabase
@@ -163,6 +165,20 @@ export default function AddItemPage() {
                 className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
               />
             </div>
+          </div>
+        )}
+
+        {isOwner && (
+          <div>
+            <label className="block text-sm font-semibold mb-2">
+              Expiry Date {'(optional)'}
+            </label>
+            <input
+              type="date"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
+            />
           </div>
         )}
       </div>

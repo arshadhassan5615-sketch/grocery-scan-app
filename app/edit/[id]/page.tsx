@@ -12,6 +12,10 @@ export default function EditItemPage() {
   const [barcode, setBarcode] = useState('');
   const [buyPrice, setBuyPrice] = useState('');
   const [sellPrice, setSellPrice] = useState('');
+  const [isOwner, setIsOwner] = useState(false);
+  const [stockQty, setStockQty] = useState('');
+  const [threshold, setThreshold] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +38,10 @@ export default function EditItemPage() {
       setBarcode(data.barcode || '');
       setBuyPrice(data.buy_price);
       setSellPrice(data.sell_price);
+      setStockQty(String(data.stock_quantity ?? 0));
+      setThreshold(String(data.low_stock_threshold ?? 5));
+      setExpiryDate(data.expiry_date || '');
+      setIsOwner(sessionStorage.getItem('grocery-role') === 'owner');
       setLoading(false);
     };
 
@@ -49,14 +57,21 @@ export default function EditItemPage() {
     setSaving(true);
     setError(null);
 
+    const updatePayload: Record<string, unknown> = {
+      name: name.trim(),
+      barcode: barcode || null,
+      buy_price: parseFloat(buyPrice).toFixed(2),
+      sell_price: parseFloat(sellPrice).toFixed(2),
+    };
+    if (isOwner) {
+      updatePayload.stock_quantity = parseInt(stockQty) || 0;
+      updatePayload.low_stock_threshold = parseInt(threshold) || 5;
+      updatePayload.expiry_date = expiryDate || null;
+    }
+
     const { error: err } = await supabase
       .from('products')
-      .update({
-        name: name.trim(),
-        barcode: barcode || null,
-        buy_price: parseFloat(buyPrice).toFixed(2),
-        sell_price: parseFloat(sellPrice).toFixed(2),
-      })
+      .update(updatePayload)
       .eq('id', params.id);
 
     setSaving(false);
@@ -145,6 +160,47 @@ export default function EditItemPage() {
             className="w-full border-2 border-black dark:border-gray-400 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
           />
         </div>
+
+        {isOwner && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold mb-2">
+                Stock Quantity
+              </label>
+              <input
+                type="number"
+                value={stockQty}
+                onChange={(e) => setStockQty(e.target.value)}
+                className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-2">
+                Low Stock Threshold
+              </label>
+              <input
+                type="number"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
+              />
+            </div>
+          </div>
+        )}
+
+        {isOwner && (
+          <div>
+            <label className="block text-sm font-semibold mb-2">
+              Expiry Date {'(optional)'}
+            </label>
+            <input
+              type="date"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
+            />
+          </div>
+        )}
       </div>
 
       <button

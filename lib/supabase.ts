@@ -55,6 +55,7 @@ export type Item = {
   created_at: string;
   stock_quantity: number;
   low_stock_threshold: number;
+  expiry_date?: string | null;
 };
 
 export type Transaction = {
