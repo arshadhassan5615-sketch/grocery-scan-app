@@ -100,3 +100,22 @@ export type Supplier = {
   notes?: string | null;
   created_at: string;
 };
+
+export type Customer = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  whatsapp?: string | null;
+  notes?: string | null;
+  created_at: string;
+};
+
+export type Debt = {
+  id: string;
+  customer_id: string;
+  description: string;
+  amount: number;
+  is_paid: boolean;
+  created_at: string;
+  paid_at?: string | null;
+};

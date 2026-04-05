@@ -10,6 +10,8 @@ export default function HomePage() {
   const [role, setRole] = useState<string | null>(null);
   const [lowStockItems, setLowStockItems] = useState<Array<{ name: string; stock: number }>>([]);
   const [expiringSoon, setExpiringSoon] = useState<number>(0);
+  const [debtTotal, setDebtTotal] = useState<number>(0);
+  const [debtCount, setDebtCount] = useState<number>(0);
   const [checked, setChecked] = useState(false);
 
   useInactivityTimeout();
@@ -60,6 +62,20 @@ export default function HomePage() {
       }
     };
     checkExpiry();
+
+    // Check outstanding debts
+    const checkDebts = async () => {
+      const { data } = await supabase
+        .from('debts')
+        .select('amount, is_paid')
+        .eq('is_paid', false);
+      if (data) {
+        const total = data.reduce((s, d) => s + d.amount, 0);
+        setDebtTotal(total);
+        setDebtCount(data.length);
+      }
+    };
+    checkDebts();
   }, [checked, role]);
 
   if (!checked) return null;
@@ -111,6 +127,18 @@ export default function HomePage() {
         </Link>
       )}
 
+      {/* Debt banner */}
+      {role === 'owner' && debtCount > 0 && (
+        <Link
+          href="/customers"
+          className="w-full bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 active:bg-red-100 dark:active:bg-red-900/50 touch-manipulation"
+        >
+          <p className="text-red-700 dark:text-red-300 text-sm font-semibold">
+            {debtCount} customer{debtCount > 1 ? 's have' : ' has'} outstanding tabs — AED {debtTotal.toFixed(2)}
+          </p>
+        </Link>
+      )}
+
       <Link
         href="/scan"
         className="w-full bg-black text-white text-xl font-semibold rounded-2xl flex items-center justify-center min-h-[72px] active:bg-gray-800 dark:bg-white dark:text-black dark:active:bg-gray-200 transition-colors touch-manipulation"
@@ -151,7 +179,7 @@ export default function HomePage() {
       </Link>
 
       {role === 'owner' && (
-        <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
+        <div className="grid grid-cols-3 gap-3 w-full max-w-sm">
           <Link
             href="/history"
             className="border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
@@ -175,6 +203,12 @@ export default function HomePage() {
             className="border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
           >
             Suppliers
+          </Link>
+          <Link
+            href="/customers"
+            className="border-2 border-gray-300 dark:border-gray-600 rounded-xl text-center py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-700 touch-manipulation"
+          >
+            Customers
           </Link>
         </div>
       )}

@@ -21,6 +21,11 @@ export default function CartPage() {
   const [showProfit, setShowProfit] = useState(false);
   const [finalizeLoading, setFinalizeLoading] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [chargeLoading, setChargeLoading] = useState(false);
+  const [showCustomerSelect, setShowCustomerSelect] = useState(false);
+  const [customers, setCustomers] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState('');
+  const [chargeConfirm, setChargeConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -57,6 +62,95 @@ export default function CartPage() {
     if (!confirm('Clear all items from cart?')) return;
     clearCart();
     refresh();
+  };
+
+  const fetchCustomers = async () => {
+    const { data } = await supabase.from('customers').select('id, name').order('name', { ascending: true });
+    if (data) setCustomers(data);
+    setShowCustomerSelect(true);
+  };
+
+  const handleChargeToTab = async () => {
+    if (!selectedCustomer) return;
+    const customer = customers.find((c) => c.id === selectedCustomer);
+    if (!customer) return;
+
+    setChargeLoading(true);
+
+    try {
+      // Create transaction as normal
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const random4 = Math.floor(1000 + Math.random() * 9000);
+      const transactionId = `TXN-${dateStr}-${random4}`;
+
+      const transactionItems = summary.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        buy_price: item.buy_price,
+        sell_price: item.sell_price,
+        quantity: item.quantity,
+        lineTotal: parseFloat(item.lineTotal),
+      }));
+
+      const { data, error: txnError } = await supabase
+        .from('transactions')
+        .insert({
+          transaction_id: transactionId,
+          items: transactionItems,
+          subtotal: parseFloat(summary.subtotal),
+          vat_amount: parseFloat(summary.vat),
+          grand_total: parseFloat(summary.grandTotal),
+          total_profit: parseFloat(summary.totalProfit),
+        })
+        .select()
+        .single();
+
+      if (txnError) throw txnError;
+
+      // Insert debt record
+      const { error: debtError } = await supabase
+        .from('debts')
+        .insert({
+          customer_id: selectedCustomer,
+          description: `Tab - ${transactionId}`,
+          amount: parseFloat(summary.grandTotal),
+          is_paid: false,
+        });
+
+      if (debtError) throw debtError;
+
+      // Deduct stock
+      const stockResult = await supabase
+        .from('products')
+        .select('id, stock_quantity')
+        .in('id', summary.items.map((i) => i.id));
+
+      const stockMap = new Map<string, number>();
+      if (stockResult.data) {
+        for (const row of stockResult.data) {
+          stockMap.set(row.id, row.stock_quantity ?? 0);
+        }
+      }
+
+      for (const item of summary.items) {
+        const current = stockMap.get(item.id) ?? 0;
+        const newQty = Math.max(0, current - item.quantity);
+        await supabase.from('products').update({ stock_quantity: newQty }).eq('id', item.id);
+      }
+
+      clearCart();
+      window.dispatchEvent(new Event('cart-changed'));
+
+      setChargeConfirm(`${summary.grandTotal} added to ${customer.name}'s tab`);
+      setShowCustomerSelect(false);
+      setSelectedCustomer('');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to charge to tab. Please try again.');
+    } finally {
+      setChargeLoading(false);
+    }
   };
 
   const handleFinalize = async () => {
@@ -276,6 +370,66 @@ export default function CartPage() {
       >
         Clear Cart
       </button>
+
+      {!showCustomerSelect && !chargeConfirm && (
+        <button
+          onClick={fetchCustomers}
+          className="w-full bg-blue-600 text-white font-bold text-lg rounded-2xl py-4 min-h-[64px] mt-2 active:bg-blue-700 touch-manipulation"
+        >
+          Charge to Tab
+        </button>
+      )}
+
+      {showCustomerSelect && (
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 mt-2 space-y-3">
+          <p className="text-sm font-semibold">Select Customer</p>
+          {customers.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No customers yet —{' '}
+              <Link href="/customers/add" className="text-blue-600 dark:text-blue-400 underline">
+                add a customer first
+              </Link>
+            </p>
+          ) : (
+            <>
+              <select
+                value={selectedCustomer}
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+                className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-lg min-h-[56px] bg-white dark:bg-gray-800 focus:outline-none focus:border-gray-500"
+              >
+                <option value="">Select a customer</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleChargeToTab}
+                  disabled={chargeLoading || !selectedCustomer}
+                  className="flex-1 bg-blue-600 text-white font-semibold rounded-xl py-3 min-h-[56px] active:bg-blue-700 disabled:bg-gray-400 touch-manipulation"
+                >
+                  {chargeLoading ? 'Processing...' : 'Confirm Charge'}
+                </button>
+                <button
+                  onClick={() => { setShowCustomerSelect(false); setSelectedCustomer(''); }}
+                  className="bg-gray-200 dark:bg-gray-700 font-semibold rounded-xl px-4 py-3 min-h-[56px] active:bg-gray-300 dark:active:bg-gray-600 touch-manipulation"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {chargeConfirm && (
+        <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-2xl px-4 py-4 mt-2 text-center">
+          <p className="text-green-700 dark:text-green-300 font-semibold">{chargeConfirm}</p>
+          <Link href="/customers" className="text-blue-600 dark:text-blue-400 text-sm underline mt-1 inline-block">
+            View Customers
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
